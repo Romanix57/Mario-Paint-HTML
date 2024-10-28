@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mario Paint</title>
+	<link rel="icon" href="source/cursor.png">
+    <style>
+        #myCanvas {
+            border: 3px solid black; /* Borde para el canvas */
+			position:relative; 
+			z-index: 0;
+			background-color:rgba(255,255,255,1);
+        }
+		#overlay {
+			background-color:rgba(0,0,0,0); 
+			z-index: 1;
+			position:absolute;
+			cursor: url('source/cursor.png'), auto; 
+		}
+        .controls, .colorslider, button {
+            margin: 5px;     /* Separación entre controles y canvas */
+        }
+		#colorpreview{
+			height:100px;
+			width:100px;
+			background-color:rgba(0,0,0,1);
+			position: absolute;
+			  top: 50%;
+			  left: 50%;
+			  margin: -50px 0 0 -50px; 
+		}
+		.previewbg{
+		height: 120px;
+		width: 120px;
+			background-image: url('source/checker pattern.png');
+			position: relative;
+		}
+		table.paint {
+			background-color:#f5daeb;
+			border: 10px groove;
+			border-color:#d90f4f;
+			padding:10px;
+			border-bottom-style:none;
+			margin-bottom:-50px;
+			padding-bottom:20px;
+		}
+		table.outer {
+			padding-left:5%;
+			margin-top:-35px;
+			
+			margin-bottom:47px;
+		}
+		body {
+			font-family: '8bitoperator';
+			font-size:12px;
+			background: linear-gradient(0deg, rgba(0,67,107,1) 9%, rgba(48,220,255,1) 100%);
+			background-size:100%100%;
+			}
+		button {
+			padding-left:5px;
+			padding-right:5px;
+			font-family: '8bitoperator';
+			font-size: 12px;
+			border-color:black;
+			border-width:5px;
+			margin:3px;
+		}
+		@font-face {
+		  font-family: 8bitoperator;
+		  src: url('source/8bitoperator.ttf');
+		}
+		img{
+			padding-top:6px;
+			height:15px;
+		}
+		img.logo{
+			height:150px;
+			padding-bottom:5px;
+		}
+		img.mario{
+			height:335px;
+			padding-top:10px;
+		}
+		#redRange{
+			accent-color:red;
+		}
+		#greenRange{
+			accent-color:green;
+		}
+		#blueRange{
+			accent-color:blue;
+		}
+    </style>
+</head>
+<body>
+	<table class="outer"><tr><td>
+	<table class="paint"><tr>
+	<td rowspan=6>
+		<canvas id="overlay" width="600" height="500"></canvas>
+		<canvas id="myCanvas" width="600" height="500"></canvas> <!-- Área de dibujo -->
+	</td>
+	<td>
+    <div class="controls"> <!-- Controles para botones -->
+		<button id="playMusic">Music toggle</button><br>
+        <button id="clearCanvas">Clear canvas</button><br>
+		<button id="drawSquare"> <img src="source/drawsquare.png"> </button><button id="fillSquare"> <img src="source/fillsquare.png"> </button><button id="drawLine"> <img src="source/drawline.png"> </button><br>
+		<button id="drawCircle"> <img src="source/drawcircle.png"> </button><button id="fillCircle"> <img src="source/fillcircle.png"> </button><button id="drawCurve"> <img src="source/drawcurve.png"> </button><br>
+		<input type="range" id="lineWidth" min="1" max="10" value="3"> Brush width
+    </div>
+	</td></tr>
+    <tr><td>
+		<div class="colorslider">
+		<input type="range" min="0" max="255" value="0" class="slider" id="redRange"> <br>Red
+		</div>
+	</td></tr>
+	<tr><td>
+		<div class="colorslider">
+		  <input type="range" min="0" max="255" value="0" class="slider" id="greenRange"> <br>Green
+		</div>
+	</td></tr>
+	<tr><td>
+		<div class="colorslider">
+		  <input type="range" min="0" max="255" value="0" class="slider" id="blueRange"> <br>Blue
+		</div>
+	</td></tr>
+	<tr><td>
+		<div class="colorslider">
+		  <input type="range" min="0" max="100" value="0" class="slider" id="alphaRange"> Opacity
+		</div>
+	</td></tr>
+	<tr><td>
+		<div class="previewbg">
+		<div id="colorpreview"></div>
+		</div>
+		<button id="rainbow"> <img src="source/rainbow.png" height=15> </button>
+		<button id="dropper"> <img src="source/dropper.png" height=15> </button>
+		<br><button id="fillbg">Fill background</button>
+	</td></tr>
+	</table>
+	</td><td>
+	<img class="logo" src="source/logo.png">
+	<img class="mario" src="source/mario.png"></td></tr>
+	</table>
+    
+    <script>
+		var musica = new Audio('source/Creative Exercise.mp3');
+		musica.loop=true;
+		var tocaMusica=false;
+        const canvas = document.getElementById('myCanvas'); // Obtener el canvas
+		const overlay = document.getElementById('overlay');
+        const ctx = canvas.getContext('2d'); // Obtener el contexto del canvas
+		const octx = overlay.getContext('2d');
+
+        let drawing = false; // Bandera para saber si el usuario está dibujando
+        let lastX = 0, lastY = 0; // Para rastrear la última posición del ratón
+		
+		let drawingSquare=false;
+		let drawingCircle=false;
+		let fillingSquare=false;
+		let fillingCircle=false;
+		let drawingLine=false;
+		let drawingCurve=false;
+		let curveClick=false;
+		
+		var controlX=0;
+		var controlY=0;
+		var middleX=0;
+		var middleY=0;
+		
+		let dropperActive=false;
+		let rainbowBrush=false;
+		const grad=ctx.createLinearGradient(0,250,600,250);
+		grad.addColorStop(0, "red");
+		grad.addColorStop(.2, "orange");
+		grad.addColorStop(.4, "yellow");
+		grad.addColorStop(.6, "green");
+		grad.addColorStop(.8, "blue");
+		grad.addColorStop(1, "purple");
+		
+		var redSlider = document.getElementById("redRange");
+		var greenSlider = document.getElementById("greenRange");
+		var blueSlider = document.getElementById("blueRange");
+		var alphaSlider = document.getElementById("alphaRange");
+		var colorPreview = document.getElementById("colorpreview");
+		var fillBackground = document.getElementById("fillbg");
+		
+		redSlider.addEventListener('mousemove', () =>{
+			colorPreview.style.backgroundColor="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+		});
+		greenSlider.addEventListener('mousemove', () =>{
+			colorPreview.style.backgroundColor="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+		});
+		blueSlider.addEventListener('mousemove', () =>{
+			colorPreview.style.backgroundColor="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+		});
+		alphaSlider.addEventListener('mousemove', () =>{
+			colorPreview.style.backgroundColor="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+		});
+		fillBackground.addEventListener('click', () =>{
+			canvas.style.backgroundColor="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+		});
+	
+
+        // Cambiar el grosor del trazo
+        document.getElementById('lineWidth').addEventListener('input', (e) => {
+            ctx.lineWidth = e.target.value;
+			if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+			}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+				overlay.style.cursor="url('source/cursor1.png'), auto";
+			}else{
+				overlay.style.cursor="url('source/cursor2.png'), auto";
+			}
+        });
+
+        // Evento para borrar todo el lienzo
+        document.getElementById('clearCanvas').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpiar el canvas
+        });
+
+		document.getElementById('playMusic').addEventListener('click', () => {
+            if(tocaMusica){
+				musica.pause();
+				tocaMusica=false;
+			}else{
+				musica.play();
+				tocaMusica=true;
+			}
+        });
+		
+		document.getElementById('drawSquare').addEventListener('click', () => {
+			if(drawingSquare){
+				drawingSquare=false;
+				if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+				}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+				}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+				}
+				return;
+			}else{
+				drawingSquare=true;
+			}
+			drawingCircle=false;
+			fillingSquare=false;
+			fillingCircle=false;
+			drawingLine=false;
+			drawingCurve=false;
+			dropperActive=false;
+			overlay.style.cursor="url('source/cursorsq.png'), auto";
+		});
+		
+		document.getElementById('drawCircle').addEventListener('click', () => {
+			if(drawingCircle){
+				drawingCircle=false;
+				if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+				}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+				overlay.style.cursor="url('source/cursor1.png'), auto";
+				}else{
+				overlay.style.cursor="url('source/cursor2.png'), auto";
+				}
+				return;
+			}else{
+				drawingCircle=true;
+			}
+			drawingSquare=false;
+			fillingSquare=false;
+			fillingCircle=false;
+			drawingLine=false;
+			drawingCurve=false;
+			dropperActive=false;
+			overlay.style.cursor="url('source/cursorci.png'), auto";
+		});
+		
+		document.getElementById('fillSquare').addEventListener('click', () => {
+			if(fillingSquare){
+				fillingSquare=false;
+				if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+				}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+				}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+				}
+				return;
+			}else{
+				fillingSquare=true;
+			}
+			drawingCircle=false;
+			drawingSquare=false;
+			fillingCircle=false;
+			drawingLine=false;
+			drawingCurve=false;
+			dropperActive=false;
+			overlay.style.cursor="url('source/cursorsq1.png'), auto";
+		});
+		
+		document.getElementById('fillCircle').addEventListener('click', () => {
+			if(fillingCircle){
+				fillingCircle=false;
+				if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+				}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+				}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+				}
+				return;
+			}else{
+				fillingCircle=true;
+			}
+			drawingCircle=false;
+			fillingSquare=false;
+			drawingSquare=false;
+			drawingLine=false;
+			drawingCurve=false;
+			dropperActive=false;
+			overlay.style.cursor="url('source/cursorci1.png'), auto";
+		});
+		
+		document.getElementById('drawLine').addEventListener('click', () => {
+			if(drawingLine){
+				drawingLine=false;
+				if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+				}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+				}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+				}
+				return;
+			}else{
+				drawingLine=true;
+			}
+			drawingCircle=false;
+			fillingSquare=false;
+			drawingSquare=false;
+			fillingCircle=false;
+			drawingCurve=false;
+			dropperActive=false;
+			if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+			}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+			}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+			}
+		});
+		
+		document.getElementById('drawCurve').addEventListener('click', () => {
+			if(drawingCurve){
+				drawingCurve=false;
+				if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+				}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+				}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+				}
+				return;
+			}else{
+				drawingCurve=true;
+			}
+			drawingCircle=false;
+			fillingSquare=false;
+			drawingSquare=false;
+			fillingCircle=false;
+			drawingLine=false;
+			dropperActive=false;
+			if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+			}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+			}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+			}
+		});
+		
+		document.getElementById('rainbow').addEventListener('click', () => {
+			if(rainbowBrush){
+				rainbowBrush=false;
+				ctx.strokeStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+				ctx.fillStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+				return;
+			}else{
+				ctx.strokeStyle=grad;
+				ctx.fillStyle=grad;
+				rainbowBrush=true;
+				console.log(ctx.fillStyle);
+			}
+		});
+		
+		document.getElementById('dropper').addEventListener('click', () => {
+			if(dropperActive){
+				dropperActive=false;
+				if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+				}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+				}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+				}
+				return;
+			}else{
+				dropperActive=true;
+			}
+			drawingCircle=false;
+			fillingSquare=false;
+			drawingSquare=false;
+			fillingCircle=false;
+			drawingLine=false;
+			drawingCurve=false;
+			if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+			}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+			}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+			}
+		});
+
+        // Evento al presionar el ratón
+        overlay.addEventListener('mousedown', (e) => {
+			if(dropperActive){
+				var data = ctx.getImageData(e.offsetX, e.offsetY, 600, 500).data;
+				ctx.strokeStyle="rgba("+data[0]+","+data[1]+","+data[2]+","+data[3]+")";
+				ctx.fillStyle="rgba("+data[0]+","+data[1]+","+data[2]+","+data[3]+")";
+				colorPreview.style.backgroundColor="rgba("+data[0]+","+data[1]+","+data[2]+",1)";
+				redSlider.value=data[0];
+				greenSlider.value=data[1];
+				blueSlider.value=data[2];
+				alphaSlider.value=0;
+				dropperActive=false;
+			}
+			if(curveClick){
+				ctx.beginPath();
+					ctx.moveTo(lastX,lastY);
+					ctx.quadraticCurveTo(controlX, controlY, lastX2, lastY2);
+					ctx.stroke();
+				ctx.closePath();
+				curveClick=false;
+				return;
+			}
+            drawing = true; // Activar la bandera de dibujo
+            [lastX, lastY] = [e.offsetX, e.offsetY]; // Guardar la posición inicial
+			if(!rainbowBrush){
+			ctx.strokeStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+			ctx.fillStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+			}
+        });
+
+        // Evento al soltar el ratón
+        overlay.addEventListener('mouseup', () => {
+			if(drawingSquare||drawingCircle||drawingLine) ctx.stroke();
+			if(fillingSquare||fillingCircle) ctx.fill();
+			drawingCurve=false;
+            drawing = false; // Desactivar la bandera de dibujo
+        });
+
+        // Evento al mover el ratón
+        overlay.addEventListener('mousemove', (e) => {
+            if (!drawing){
+				if(curveClick){
+					middleX=lastX-(lastX-lastX2)/2;
+					middleY=lastY-(lastY-lastY2)/2;
+					controlX = e.offsetX+(e.offsetX-middleX);
+					controlY = e.offsetY+(e.offsetY-middleY);
+					
+					octx.beginPath();
+					octx.moveTo(lastX,lastY);
+					octx.quadraticCurveTo(controlX, controlY, lastX2, lastY2);
+					sleep(50).then(() => {octx.clearRect(0,0,600,500);});
+					octx.stroke();
+					octx.stroke();
+					octx.closePath();
+				}else{
+					return;
+				}
+			} // Si no estamos dibujando, salimos de la función
+			if (drawingSquare||fillingSquare){
+				ctx.lineCap = 'square';
+				ctx.beginPath(); // Comenzar un nuevo camino
+				ctx.moveTo(lastX, lastY); // Moverse a la última posición
+				ctx.lineTo(e.offsetX, lastY);
+				ctx.lineTo(e.offsetX, e.offsetY); 
+				ctx.lineTo(lastX, e.offsetY); 
+				ctx.lineTo(lastX, lastY);
+				
+				octx.beginPath();
+				octx.moveTo(lastX, lastY);
+				octx.lineTo(e.offsetX, lastY);
+				octx.lineTo(e.offsetX, e.offsetY); 
+				octx.lineTo(lastX, e.offsetY); 
+				octx.lineTo(lastX, lastY);
+				sleep(50).then(() => {octx.clearRect(0,0,600,500);});
+				octx.stroke();
+				octx.stroke();
+			}else if(drawingCircle||fillingCircle){
+				ctx.beginPath();
+				ctx.ellipse(lastX, lastY, Math.abs(e.offsetX-lastX), Math.abs(e.offsetY-lastY), 0, 0, 2 * Math.PI);
+				ctx.closePath();
+				octx.beginPath();
+				octx.ellipse(lastX, lastY, Math.abs(e.offsetX-lastX), Math.abs(e.offsetY-lastY), 0, 0, 2 * Math.PI);
+				sleep(50).then(() => {octx.clearRect(0,0,600,500);});
+				octx.stroke();
+				octx.stroke();
+				octx.closePath();
+			}else if(drawingLine){
+				ctx.lineCap = 'round';
+				ctx.beginPath();
+				ctx.moveTo(lastX, lastY);
+				ctx.lineTo(e.offsetX, e.offsetY);
+				ctx.closePath();
+				
+				octx.beginPath();
+				octx.moveTo(lastX, lastY);
+				octx.lineTo(e.offsetX, e.offsetY);
+				octx.closePath();
+				sleep(50).then(() => {octx.clearRect(0,0,600,500);});
+				octx.stroke();
+				octx.stroke();
+			}else if(drawingCurve){
+				octx.beginPath();
+				octx.moveTo(lastX, lastY);
+				octx.lineTo(e.offsetX, e.offsetY);
+				octx.closePath();
+				sleep(50).then(() => {octx.clearRect(0,0,600,500);});
+				octx.stroke();
+				octx.stroke();
+				[lastX2, lastY2] = [e.offsetX, e.offsetY]
+				curveClick=true;
+			}else if(!curveClick){
+				ctx.lineCap = 'round';
+				ctx.beginPath(); // Comenzar un nuevo camino
+				ctx.moveTo(lastX, lastY); // Moverse a la última posición
+				ctx.lineTo(e.offsetX, e.offsetY); // Dibujar hasta la nueva posición
+				ctx.stroke(); // Realizar el trazo
+				[lastX, lastY] = [e.offsetX, e.offsetY]; // Actualizar la última posición
+			}
+        });
+		
+		function sleep(ms) {
+			return new Promise(resolve => setTimeout(resolve, ms));
+		}
+
+        // Establecer propiedades del trazo
+        ctx.lineWidth = 3; // Ancho del trazo
+        ctx.lineCap = 'round'; // Terminar los trazos con un borde redondeado
+    </script>
+</body>
+</html>
