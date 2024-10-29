@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mario Paint</title>
-	<link rel="icon" href="source/cursor.png">
+    <title>Paint con Canvas</title>
     <style>
         #myCanvas {
             border: 3px solid black; /* Borde para el canvas */
@@ -105,8 +104,8 @@
 		<button id="playMusic">Toggle music</button><br>
         <button id="clearCanvas">Clear canvas</button><br>
 		<button id="drawSquare"> <img src="source/drawsquare.png"> </button><button id="fillSquare"> <img src="source/fillsquare.png"> </button><button id="drawLine"> <img src="source/drawline.png"> </button><br>
-		<button id="drawCircle"> <img src="source/drawcircle.png"> </button><button id="fillCircle"> <img src="source/fillcircle.png"> </button><button id="drawCurve"> <img src="source/drawcurve.png"> </button><br>
-		<input type="range" id="lineWidth" min="1" max="10" value="3"> Brush width
+		<button id="drawCircle"> <img src="source/drawcircle.png"> </button><button id="fillCircle"> <img src="source/fillcircle.png"> </button><button id="drawCurve"> <img src="source/drawcurve.png"> </button> <button id="drawBezier" style="margin-left:-4px"> <img src="source/drawbezier.png"> </button><br>
+		<input type="range" id="lineWidth" min="1" max="10" value="3"> Brush size
     </div>
 	</td></tr>
     <tr><td>
@@ -133,7 +132,8 @@
 		<div class="previewbg">
 		<div id="colorpreview"></div>
 		</div>
-		<button id="rainbow"> <img src="source/rainbow.png" height=15> </button>
+		<button id="rainbowH"> <img src="source/rainbow.png" height=15> </button>
+		<button id="rainbowV"> <img src="source/rainbow1.png" height=15> </button>
 		<button id="dropper"> <img src="source/dropper.png" height=15> </button>
 		<br><button id="fillbg">Fill background</button>
 	</td></tr>
@@ -162,21 +162,33 @@
 		let drawingLine=false;
 		let drawingCurve=false;
 		let curveClick=false;
+		let drawingBezier=false;
 		
 		var controlX=0;
 		var controlY=0;
+		var controlX2=0;
+		var controlY2=0;
+		var bezierCount=0;
 		var middleX=0;
 		var middleY=0;
 		
 		let dropperActive=false;
 		let rainbowBrush=false;
-		const grad=ctx.createLinearGradient(0,250,600,250);
-		grad.addColorStop(0, "red");
-		grad.addColorStop(.2, "orange");
-		grad.addColorStop(.4, "yellow");
-		grad.addColorStop(.6, "green");
-		grad.addColorStop(.8, "blue");
-		grad.addColorStop(1, "purple");
+		let rainbowBrush1=false;
+		const grad1=ctx.createLinearGradient(0,0,600,0);
+		grad1.addColorStop(0, "red");
+		grad1.addColorStop(.2, "orange");
+		grad1.addColorStop(.4, "yellow");
+		grad1.addColorStop(.6, "green");
+		grad1.addColorStop(.8, "blue");
+		grad1.addColorStop(1, "purple");
+		const grad2=ctx.createLinearGradient(0,0,0,500);
+		grad2.addColorStop(0, "red");
+		grad2.addColorStop(.2, "orange");
+		grad2.addColorStop(.4, "yellow");
+		grad2.addColorStop(.6, "green");
+		grad2.addColorStop(.8, "blue");
+		grad2.addColorStop(1, "purple");
 		
 		var redSlider = document.getElementById("redRange");
 		var greenSlider = document.getElementById("greenRange");
@@ -249,6 +261,7 @@
 			drawingLine=false;
 			drawingCurve=false;
 			dropperActive=false;
+			drawingBezier=false;
 			overlay.style.cursor="url('source/cursorsq.png'), auto";
 		});
 		
@@ -272,6 +285,7 @@
 			drawingLine=false;
 			drawingCurve=false;
 			dropperActive=false;
+			drawingBezier=false;
 			overlay.style.cursor="url('source/cursorci.png'), auto";
 		});
 		
@@ -295,6 +309,7 @@
 			drawingLine=false;
 			drawingCurve=false;
 			dropperActive=false;
+			drawingBezier=false;
 			overlay.style.cursor="url('source/cursorsq1.png'), auto";
 		});
 		
@@ -318,6 +333,7 @@
 			drawingLine=false;
 			drawingCurve=false;
 			dropperActive=false;
+			drawingBezier=false;
 			overlay.style.cursor="url('source/cursorci1.png'), auto";
 		});
 		
@@ -341,6 +357,7 @@
 			fillingCircle=false;
 			drawingCurve=false;
 			dropperActive=false;
+			drawingBezier=false;
 			if(ctx.lineWidth<=3){
 				overlay.style.cursor="url('source/cursor.png'), auto";
 			}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
@@ -370,6 +387,7 @@
 			fillingCircle=false;
 			drawingLine=false;
 			dropperActive=false;
+			drawingBezier=false;
 			if(ctx.lineWidth<=3){
 				overlay.style.cursor="url('source/cursor.png'), auto";
 			}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
@@ -379,17 +397,61 @@
 			}
 		});
 		
-		document.getElementById('rainbow').addEventListener('click', () => {
+		document.getElementById('drawBezier').addEventListener('click', () => {
+			if(drawingBezier){
+				drawingBezier=false;
+				if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+				}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+				}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+				}
+				return;
+			}else{
+				drawingBezier=true;
+			}
+			drawingCircle=false;
+			fillingSquare=false;
+			drawingSquare=false;
+			fillingCircle=false;
+			drawingLine=false;
+			dropperActive=false;
+			drawingCurve=false;
+			if(ctx.lineWidth<=3){
+				overlay.style.cursor="url('source/cursor.png'), auto";
+			}else if(ctx.lineWidth>3&&ctx.lineWidth<8){
+					overlay.style.cursor="url('source/cursor1.png'), auto";
+			}else{
+					overlay.style.cursor="url('source/cursor2.png'), auto";
+			}
+		});
+		
+		document.getElementById('rainbowV').addEventListener('click', () => {
 			if(rainbowBrush){
 				rainbowBrush=false;
 				ctx.strokeStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
 				ctx.fillStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
 				return;
 			}else{
-				ctx.strokeStyle=grad;
-				ctx.fillStyle=grad;
+				ctx.strokeStyle=grad1;
+				ctx.fillStyle=grad1;
 				rainbowBrush=true;
-				console.log(ctx.fillStyle);
+				rainbowBrush1=false;
+			}
+		});
+		
+		document.getElementById('rainbowH').addEventListener('click', () => {
+			if(rainbowBrush1){
+				rainbowBrush1=false;
+				ctx.strokeStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+				ctx.fillStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
+				return;
+			}else{
+				ctx.strokeStyle=grad2;
+				ctx.fillStyle=grad2;
+				rainbowBrush1=true;
+				rainbowBrush=false;
 			}
 		});
 		
@@ -442,11 +504,25 @@
 					ctx.stroke();
 				ctx.closePath();
 				curveClick=false;
+				drawingCurve=true;
+				return;
+			}
+			if(bezierCount==1){
+				bezierCount=2;
+				return;
+			}else if(bezierCount==2){
+				ctx.beginPath();
+					ctx.moveTo(lastX,lastY);
+					ctx.bezierCurveTo(controlX, controlY, controlX2, controlY2, lastX2, lastY2);
+					ctx.stroke();
+				ctx.closePath();
+				bezierCount=0;
+				drawingBezier=true;
 				return;
 			}
             drawing = true; // Activar la bandera de dibujo
             [lastX, lastY] = [e.offsetX, e.offsetY]; // Guardar la posición inicial
-			if(!rainbowBrush){
+			if(!(rainbowBrush||rainbowBrush1)){
 			ctx.strokeStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
 			ctx.fillStyle="rgba("+redSlider.value+","+greenSlider.value+","+blueSlider.value+","+(1-alphaSlider.value/100)+")";
 			}
@@ -456,7 +532,8 @@
         overlay.addEventListener('mouseup', () => {
 			if(drawingSquare||drawingCircle||drawingLine) ctx.stroke();
 			if(fillingSquare||fillingCircle) ctx.fill();
-			drawingCurve=false;
+			if(curveClick) drawingCurve=false;
+			if(bezierCount>0) drawingBezier=false;
             drawing = false; // Desactivar la bandera de dibujo
         });
 
@@ -472,6 +549,32 @@
 					octx.beginPath();
 					octx.moveTo(lastX,lastY);
 					octx.quadraticCurveTo(controlX, controlY, lastX2, lastY2);
+					sleep(50).then(() => {octx.clearRect(0,0,600,500);});
+					octx.stroke();
+					octx.stroke();
+					octx.closePath();
+				}else if(bezierCount==1){
+					middleX=lastX-(lastX-lastX2)/2;
+					middleY=lastY-(lastY-lastY2)/2;
+					controlX = e.offsetX+(e.offsetX-middleX);
+					controlY = e.offsetY+(e.offsetY-middleY);
+					
+					octx.beginPath();
+					octx.moveTo(lastX,lastY);
+					octx.bezierCurveTo(controlX, controlY, lastX, lastY, lastX2, lastY2);
+					sleep(50).then(() => {octx.clearRect(0,0,600,500);});
+					octx.stroke();
+					octx.stroke();
+					octx.closePath();
+				}else if(bezierCount==2){
+					middleX=lastX-(lastX-lastX2)/2;
+					middleY=lastY-(lastY-lastY2)/2;
+					controlX2 = e.offsetX+(e.offsetX-middleX);
+					controlY2 = e.offsetY+(e.offsetY-middleY);
+					
+					octx.beginPath();
+					octx.moveTo(lastX,lastY);
+					octx.bezierCurveTo(controlX, controlY, controlX2, controlY2, lastX2, lastY2);
 					sleep(50).then(() => {octx.clearRect(0,0,600,500);});
 					octx.stroke();
 					octx.stroke();
@@ -532,7 +635,17 @@
 				octx.stroke();
 				[lastX2, lastY2] = [e.offsetX, e.offsetY]
 				curveClick=true;
-			}else if(!curveClick){
+			}else if(drawingBezier){
+				octx.beginPath();
+				octx.moveTo(lastX, lastY);
+				octx.lineTo(e.offsetX, e.offsetY);
+				octx.closePath();
+				sleep(50).then(() => {octx.clearRect(0,0,600,500);});
+				octx.stroke();
+				octx.stroke();
+				[lastX2, lastY2] = [e.offsetX, e.offsetY]
+				bezierCount=1;
+			}else if(!(curveClick)&&bezierCount==0){
 				ctx.lineCap = 'round';
 				ctx.beginPath(); // Comenzar un nuevo camino
 				ctx.moveTo(lastX, lastY); // Moverse a la última posición
