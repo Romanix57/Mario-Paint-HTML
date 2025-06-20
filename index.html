@@ -233,10 +233,10 @@
         });
 
 	    // Guardar dibujo como .png
-        document.getElementById('saveCanvas').addEventListener('click', () => {
-           var image = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");  // here is the most important part because if you dont replace you will get a DOM 18 exception.
-	window.location.href=image; // it will save locally. solution by https://stackoverflow.com/a/15685544
-        });
+        var link = document.getElementById('saveCanvas');
+	link.setAttribute('download', 'drawing.png');
+	link.setAttribute('href', canvas.toDataURL("image/png").replace("image/png", "image/octet-stream"));
+	link.click();
 
 		document.getElementById('playMusic').addEventListener('click', () => {
             if(tocaMusica){
